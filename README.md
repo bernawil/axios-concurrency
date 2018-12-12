@@ -19,10 +19,10 @@ let api = axios.create({
   baseURL: "http://mypublicapi.com"
 });
 
-// init your manager.
+// a concurrency parameter of 1 makes all api requests secuential
 const MAX_CONCURRENT_REQUESTS = 5;
 
-// a concurrency parameter of 1 makes your api all requests secuential
+// init your manager.
 const manager = ConcurrencyManager(api, MAX_CONCURRENT_REQUESTS);
 
 // requests will be sent in batches determined by MAX_CONCURRENT_REQUESTS
