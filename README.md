@@ -32,7 +32,7 @@ Promise.all(manyIds.map(id => api.get(`/test/${id}`)))
   });
 
 // to stop using the concurrency manager.
-// will eject the response and reponse handlers from your instance
+// will eject the request and response handlers from your instance
 manager.detach()
 ```
 
