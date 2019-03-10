@@ -6,7 +6,7 @@ Implemented using axios interceptors
 ## Installing
 
 ```bash
-$ npm install axios-concurrecy
+$ npm install axios-concurrency
 ```
 
 ## Example
