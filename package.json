@@ -1,8 +1,7 @@
 {
   "name": "axios-concurrency",
   "version": "1.0.1",
-  "description":
-    "Gives easy control of how many requests an axios instance makes concurrently. Useful for dealing with rate limiting. Implemented using interceptors.",
+  "description": "Gives easy control of how many requests an axios instance makes concurrently. Useful for dealing with rate limiting. Implemented using interceptors.",
   "main": "index.js",
   "scripts": {
     "test": "node test.js"
@@ -11,11 +10,14 @@
     "type": "git",
     "url": "https://github.com/bernawil/axios-concurrency"
   },
-  "keywords": ["axios", "concurrency"],
+  "keywords": [
+    "axios",
+    "concurrency"
+  ],
   "author": "Bernardo Wilberger",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.18.0"
+    "axios": "^0.19.0"
   },
   "devDependencies": {}
 }
