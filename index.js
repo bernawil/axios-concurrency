@@ -48,7 +48,6 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
     instance.requestHandler
   );
   instance.interceptors.response = axios.interceptors.response.use(
-    instance.responseHandler,
     instance.responseHandler
   );
   return instance;
