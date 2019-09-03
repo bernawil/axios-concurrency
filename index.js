@@ -34,6 +34,9 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
       instance.shift();
       return res;
     },
+    responseErrorHandler: res => {
+      return Promise.reject(instance.responseHandler(res));
+    },
     interceptors: {
       request: null,
       response: null
@@ -48,7 +51,8 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
     instance.requestHandler
   );
   instance.interceptors.response = axios.interceptors.response.use(
-    instance.responseHandler
+    instance.responseHandler,
+    instance.responseErrorHandler,
   );
   return instance;
 };
