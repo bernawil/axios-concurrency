@@ -18,6 +18,11 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
     shift: () => {
       if (instance.queue.length) {
         const queued = instance.queue.shift();
+        if (queued.request.cancelToken && queued.request.cancelToken.reason) {
+          // the request was already cancelled - do not even start it, just forget it
+          instance.shift()
+          return
+        }
         queued.resolver(queued.request);
         instance.running.push(queued);
       }
