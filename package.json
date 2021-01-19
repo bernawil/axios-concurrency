@@ -1,6 +1,6 @@
 {
   "name": "axios-concurrency",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Gives easy control of how many requests an axios instance makes concurrently. Useful for dealing with rate limiting. Implemented using interceptors.",
   "main": "index.js",
   "scripts": {
