@@ -11,45 +11,48 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
         }
       }, 0);
     },
-    push: reqHandler => {
+    push: (reqHandler) => {
       instance.queue.push(reqHandler);
       instance.shiftInitial();
     },
     shift: () => {
       if (instance.queue.length) {
         const queued = instance.queue.shift();
-        if (queued.request.cancelToken && queued.request.cancelToken.reason) {
+        if (
+          (queued.request.cancelToken && queued.request.cancelToken.reason) ||
+          (queued.request.signal && queued.request.signal.aborted)
+        ) {
           // the request was already cancelled - do not even start it, just forget it
-          instance.shift()
-          return
+          instance.shift();
+          return;
         }
         queued.resolver(queued.request);
         instance.running.push(queued);
       }
     },
     // Use as interceptor. Queue outgoing requests
-    requestHandler: req => {
-      return new Promise(resolve => {
+    requestHandler: (req) => {
+      return new Promise((resolve) => {
         instance.push({ request: req, resolver: resolve });
       });
     },
     // Use as interceptor. Execute queued request upon receiving a response
-    responseHandler: res => {
+    responseHandler: (res) => {
       instance.running.shift();
       instance.shift();
       return res;
     },
-    responseErrorHandler: res => {
+    responseErrorHandler: (res) => {
       return Promise.reject(instance.responseHandler(res));
     },
     interceptors: {
       request: null,
-      response: null
+      response: null,
     },
     detach: () => {
       axios.interceptors.request.eject(instance.interceptors.request);
       axios.interceptors.response.eject(instance.interceptors.response);
-    }
+    },
   };
   // queue concurrent requests
   instance.interceptors.request = axios.interceptors.request.use(
@@ -57,11 +60,11 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
   );
   instance.interceptors.response = axios.interceptors.response.use(
     instance.responseHandler,
-    instance.responseErrorHandler,
+    instance.responseErrorHandler
   );
   return instance;
 };
 
 module.exports = {
-  ConcurrencyManager
+  ConcurrencyManager,
 };
