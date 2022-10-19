@@ -1,111 +1,176 @@
 import assert from "assert";
+import crypto from "crypto";
 import http from "http";
 
 import axios from "axios";
+import mocha from "mocha";
 
 import {ConcurrencyManager} from "./index.js";
 
-const port = 3333;
-const exit = status => {
-  if (status) console.log("Tests successful");
-  if (!status) console.log("Tests failed");
-  process.exit(+!status);
-};
-
-const randomInteger = () => Math.floor(Math.random() * 2000 + 100);
-const sequence = n => {
-  let seq = [];
-  for (let i = 0; i < n; i++) {
-    seq.push(i);
-  }
-  return seq;
-};
-
-const wrapPromise = (p) => {
-  return p.then(
-    result => ({result, success: true}),
-    result => ({result, success: false}),
-  )
-};
-
-let api = axios.create({
-  baseURL: `http://localhost:${port}`
-});
-
+const OK = 200;
+const BAD_REQUEST = 400;
+const LISTENING_PORT = 3333;
+const MAX_RANDOM_INT = 2000;
 const MAX_CONCURRENT_REQUESTS = 5;
-const manager = ConcurrencyManager(api, MAX_CONCURRENT_REQUESTS);
+const TEST_SERVER_URL = `http://localhost:${LISTENING_PORT}`;
 
-const server = http.createServer((req, res) => {
-
-  if (req.url === '/fail') {
-    res.writeHead(400, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ errorCode: 400 }));
+const server = http.createServer(async (req, res) => {
+  const nb = crypto.randomInt(500);
+  await new Promise(resolve => setTimeout(resolve, 40));
+  let status = OK;
+  const response = {
+    date: Date.now(),
+  };
+  if (req.url === "/fail") {
+    status = BAD_REQUEST;
   }
-
-  res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ randomInteger: randomInteger() }));
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(response));
 });
 
-server.listen(port, err => {
-  if (err) {
-    return console.log(
-      `can't create test server on localhost port ${port}`,
-      err
-    );
-  }
+describe("axios-concurency", () => {
+  let api;
 
-  setTimeout(() => {
-    console.error('Some requests got stuck.');
-    exit(false);
-  }, 1000);
+  before(() => {
+    server.listen(LISTENING_PORT, err => {
+      if (err) {
+        console.error(err);
+        throw new Error(`Can't create test server on port ${LISTENING_PORT}`);
+      }
+    });
+  });
 
-  // Test many simultaneous requests
-  Promise.all(sequence(40).map(() => api.get("/test")))
-    .then(responses => {
-      return responses.map(r => r.data);
-    })
-    .then(objects => {
-      assert(objects.length === 40);
-      objects.forEach(obj => {
-        assert(typeof obj.randomInteger === "number");
-      });
-    })
-    // Test sequence of failed and success responses. Check that errors are processed as expected
-    .then(() => Promise.all(
-      sequence(6).map(() => wrapPromise(api.get("/fail")))
-        .concat(
-          sequence(4).map(() => wrapPromise(api.get("/test")))
-        )
-    ))
-    .then(responses => {
-      assert(responses.length === 10);
-      responses.slice(0, 6).forEach(response => {
-        assert(response.success === false);
-        assert(response.result.response.data.errorCode === 400);
-      });
-      responses.slice(6).forEach(response => {
-        assert(response.success === true);
-        assert(typeof response.result.data.randomInteger === "number");
-      });
-    })
-    // Test after detaching manager
-    .then(() => {
-      // test without manager
-      manager.detach();
-      return Promise.all(sequence(40).map(() => api.get("/test")));
-    })
-    .then(responses => {
-      return responses.map(r => r.data);
-    })
-    .then(objects => {
-      objects.forEach(obj => {
-        assert(typeof obj.randomInteger === "number");
-      });
-    })
-    .then(() => exit(true))
-    .catch((error) => {
-      console.error(error);
-      exit(false)
+  after(() => {
+    server.close(err => {
+      if (err) {
+        console.error(err);
+        throw new Error("Can't stop test server");
+      }
+    });
+  });
+
+  describe("Without concurrency manager", () => {
+    let api;
+
+    before(() => {
+      api = axios.create({baseURL: TEST_SERVER_URL});
     });
 
+    it("should send all call simultaneously", async () => {
+      const nbCalls = 40;
+      const pArray = new Array(nbCalls).fill(() => api.get("/test"));
+      let smallest = Date.now() + 10000;
+      let biggest = Date.now();
+      const responses = await Promise.all(pArray.map(p => p()));
+      assert.strictEqual(
+        responses.length,
+        nbCalls,
+        `Expecting ${nbCalls} but got ${responses.length}`,
+      );
+      for (const response of responses) {
+        assert.strictEqual(typeof response.data.date, "number");
+        const date = response.data.date;
+        if (date < smallest) smallest = date;
+        if (date > biggest) biggest = date;
+      }
+      assert(biggest - smallest < 100, "Axios doesn't behave as expected, maybe your computer is really slow");
+    });
+  });
+
+  describe("With concurency manager", () => {
+    let api;
+    let manager;
+
+    before(() => {
+      api = axios.create({
+        baseURL: TEST_SERVER_URL,
+        validateStatus: status => [OK, BAD_REQUEST].includes(status),
+      });
+      manager = ConcurrencyManager(api, MAX_CONCURRENT_REQUESTS);
+    });
+
+    it(`should send all call but only ${MAX_CONCURRENT_REQUESTS} at time`, async () => {
+      const nbCalls = 40;
+      const pArray = new Array(nbCalls).fill(() => api.get("/test"));
+      let smallest = Date.now() + 10000;
+      let biggest = Date.now();
+      const responses = await Promise.all(pArray.map(p => p()));
+      assert.strictEqual(
+        responses.length,
+        nbCalls,
+        `Expecting ${nbCalls} but got ${responses.length}`,
+      );
+      for (const response of responses) {
+        assert.strictEqual(typeof response.data.date, "number");
+        const date = response.data.date;
+        if (date < smallest) smallest = date;
+        if (date > biggest) biggest = date;
+      }
+      assert(biggest - smallest > 100, "The calls are not handle buy the concurrency manager");
+    });
+
+    it(`should handle both success and failed call`, async () => {
+      const nbFailed = 6;
+      const nbSuccess = 4;
+      const nbCalls = nbFailed + nbSuccess;
+      const pArray = [
+        ...new Array(nbFailed).fill(() => api.get("/fail")),
+        ...new Array(nbSuccess).fill(() => api.get("/success")),
+      ];
+      let smallest = Date.now() + 10000;
+      let biggest = Date.now();
+      const responses = await Promise.all(pArray.map(p => p()));
+      assert.strictEqual(
+        responses.length,
+        nbCalls,
+        `Expecting ${nbCalls} but got ${responses.length}`,
+      );
+      for (const response of responses) {
+        assert.strictEqual(typeof response.data.date, "number");
+        const date = response.data.date;
+        if (date < smallest) smallest = date;
+        if (date > biggest) biggest = date;
+      }
+      assert(biggest - smallest > 40, "The calls are not handle buy the concurrency manager");
+      for (let i = 0; i < nbCalls; i++) {
+        const response = responses[i];
+        if (i < nbFailed) {
+          assert.strictEqual(response.status, BAD_REQUEST);
+        } else {
+          assert.strictEqual(response.status, OK);
+        }
+      }
+    });
+  });
+
+  describe("After detaching the concurency manager", () => {
+    let api;
+    let manager;
+
+    before(() => {
+      api = axios.create({baseURL: TEST_SERVER_URL});
+      manager = ConcurrencyManager(api, MAX_CONCURRENT_REQUESTS);
+      manager.detach();
+    });
+
+    it("should send all call simultaneously", async () => {
+      const nbCalls = 40;
+      const pArray = new Array(nbCalls).fill(() => api.get("/test"));
+      let smallest = Date.now() + 10000;
+      let biggest = Date.now();
+      const responses = await Promise.all(pArray.map(p => p()));
+      assert.strictEqual(
+        responses.length,
+        nbCalls,
+        `Expecting ${nbCalls} but got ${responses.length}`,
+      );
+      for (const response of responses) {
+        assert.strictEqual(typeof response.data.date, "number");
+        const date = response.data.date;
+        if (date < smallest) smallest = date;
+        if (date > biggest) biggest = date;
+      }
+      assert(biggest - smallest < 100, "The concurrency manager has not be detached or your computer is really slow");
+    });
+  });
 });
