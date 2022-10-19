@@ -1,4 +1,4 @@
-const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
+export const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
   if (MAX_CONCURRENT < 1)
     throw "Concurrency Manager Error: minimun concurrent requests is 1";
   let instance = {
@@ -55,8 +55,4 @@ const ConcurrencyManager = (axios, MAX_CONCURRENT = 10) => {
     instance.responseErrorHandler,
   );
   return instance;
-};
-
-module.exports = {
-  ConcurrencyManager
 };
