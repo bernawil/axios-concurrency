@@ -16,8 +16,10 @@
   ],
   "author": "Bernardo Wilberger",
   "license": "MIT",
-  "dependencies": {
-    "axios": "^0.21.1"
+  "peerDependencies": {
+    "axios": "^1"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "axios": "^1.1.3"
+  }
 }
