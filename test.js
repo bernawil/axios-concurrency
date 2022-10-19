@@ -1,8 +1,11 @@
-const { ConcurrencyManager } = require("./index");
-const axios = require("axios");
-const http = require("http");
+import assert from "assert";
+import http from "http";
+
+import axios from "axios";
+
+import {ConcurrencyManager} from "./index.js";
+
 const port = 3333;
-const assert = require("assert");
 const exit = status => {
   if (status) console.log("Tests successful");
   if (!status) console.log("Tests failed");
@@ -12,7 +15,7 @@ const exit = status => {
 const randomInteger = () => Math.floor(Math.random() * 2000 + 100);
 const sequence = n => {
   let seq = [];
-  for (i = 0; i < n; i++) {
+  for (let i = 0; i < n; i++) {
     seq.push(i);
   }
   return seq;

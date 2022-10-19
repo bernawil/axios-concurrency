@@ -16,6 +16,7 @@
   ],
   "author": "Bernardo Wilberger",
   "license": "MIT",
+  "type": "module",
   "peerDependencies": {
     "axios": "^1"
   },
